@@ -1,12 +1,9 @@
 -- Script d'initialisation pour TalentBridge
 -- Ce script crée le schéma de base de données
 
--- Extension pour UUID
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Table Companies (doit être créée en premier à cause des FK)
 CREATE TABLE IF NOT EXISTS companies (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     city VARCHAR(100),
     country VARCHAR(100),
@@ -18,13 +15,13 @@ CREATE TABLE IF NOT EXISTS companies (
 
 -- Table Users
 CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'hr', 'candidate')),
-    company_id UUID,
+    role VARCHAR(50) NOT NULL CHECK (role IN ('visitor', 'candidate', 'hr')),
+    company_id INTEGER,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -33,11 +30,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Table Job_offers
 CREATE TABLE IF NOT EXISTS job_offers (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id SERIAL PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
     description TEXT,
-    company_id UUID NOT NULL,
-    created_by UUID NOT NULL,
+    company_id INTEGER NOT NULL,
+    created_by INTEGER NOT NULL,
     salary_min DECIMAL(10,2),
     salary_max DECIMAL(10,2),
     status VARCHAR(50) DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'closed')),
@@ -50,7 +47,7 @@ CREATE TABLE IF NOT EXISTS job_offers (
 
 -- Table Tags
 CREATE TABLE IF NOT EXISTS tags (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
     description TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -59,9 +56,9 @@ CREATE TABLE IF NOT EXISTS tags (
 
 -- Table de liaison Job_offer_tags (relation many-to-many)
 CREATE TABLE IF NOT EXISTS job_offer_tags (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    job_offer_id UUID NOT NULL,
-    tag_id UUID NOT NULL,
+    id SERIAL PRIMARY KEY,
+    job_offer_id INTEGER NOT NULL,
+    tag_id INTEGER NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_job_offer_tags_job_offer FOREIGN KEY (job_offer_id) REFERENCES job_offers(id) ON DELETE CASCADE,
     CONSTRAINT fk_job_offer_tags_tag FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE,
@@ -70,8 +67,8 @@ CREATE TABLE IF NOT EXISTS job_offer_tags (
 
 -- Table CVs
 CREATE TABLE IF NOT EXISTS cvs (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL,
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
     file_path VARCHAR(500) NOT NULL,
     parsed_data JSONB,
     upload_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -113,10 +110,39 @@ CREATE TRIGGER update_job_offers_updated_at BEFORE UPDATE ON job_offers
 CREATE TRIGGER update_tags_updated_at BEFORE UPDATE ON tags
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
--- Données de test (optionnel)
+-- =====================================================
+-- DONNÉES DE TEST
+-- =====================================================
+
+-- Insertion des companies
 INSERT INTO companies (name, city, country, email, phone) VALUES
 ('TechCorp', 'Paris', 'France', 'contact@techcorp.fr', '+33123456789'),
-('StartupInc', 'Lyon', 'France', 'hello@startupinc.fr', '+33987654321')
+('StartupInc', 'Lyon', 'France', 'hello@startupinc.fr', '+33987654321'),
+('DevSolutions', 'Marseille', 'France', 'info@devsolutions.fr', '+33456789123'),
+('InnovateTech', 'Toulouse', 'France', 'contact@innovatetech.fr', '+33321654987'),
+('CloudFirst', 'Nantes', 'France', 'hello@cloudfirst.fr', '+33789456123')
+ON CONFLICT (email) DO NOTHING;
+
+-- Insertion des users
+-- Mot de passe: "password123" hashé avec bcrypt (coût 12)
+INSERT INTO users (email, password_hash, first_name, last_name, role, company_id, is_active) VALUES
+-- Admin/Visitor
+('admin@talentbridge.fr', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Admin', 'System', 'visitor', NULL, true),
+
+-- HR users (on utilisera les IDs des companies créées automatiquement)
+('marie.dupont@techcorp.fr', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Marie', 'Dupont', 'hr', (SELECT id FROM companies WHERE email = 'contact@techcorp.fr'), true),
+('jean.martin@startupinc.fr', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Jean', 'Martin', 'hr', (SELECT id FROM companies WHERE email = 'hello@startupinc.fr'), true),
+('sophie.bernard@devsolutions.fr', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Sophie', 'Bernard', 'hr', (SELECT id FROM companies WHERE email = 'info@devsolutions.fr'), true),
+('pierre.leroy@innovatetech.fr', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Pierre', 'Leroy', 'hr', (SELECT id FROM companies WHERE email = 'contact@innovatetech.fr'), true),
+
+-- Candidates
+('alice.dubois@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Alice', 'Dubois', 'candidate', NULL, true),
+('thomas.moreau@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Thomas', 'Moreau', 'candidate', NULL, true),
+('emma.laurent@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Emma', 'Laurent', 'candidate', NULL, true),
+('lucas.simon@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Lucas', 'Simon', 'candidate', NULL, true),
+('chloe.petit@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Chloé', 'Petit', 'candidate', NULL, true),
+('maxime.roux@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Maxime', 'Roux', 'candidate', NULL, true),
+('lea.garcia@gmail.com', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPj8kW.8o3vE6', 'Léa', 'Garcia', 'candidate', NULL, true)
 ON CONFLICT (email) DO NOTHING;
 
 -- Tags de test
@@ -130,5 +156,10 @@ INSERT INTO tags (name, description) VALUES
 ('Junior', 'Niveau junior (0-2 ans)'),
 ('Full-time', 'Temps plein'),
 ('Part-time', 'Temps partiel'),
-('Startup', 'Environnement startup')
+('Startup', 'Environnement startup'),
+('Node.js', 'Runtime JavaScript côté serveur'),
+('Docker', 'Conteneurisation avec Docker'),
+('AWS', 'Amazon Web Services'),
+('PostgreSQL', 'Base de données PostgreSQL'),
+('Git', 'Contrôle de version')
 ON CONFLICT (name) DO NOTHING;
