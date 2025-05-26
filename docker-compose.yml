@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  talentbridge-db:
+    image: postgres:15-alpine
+    container_name: talentbridge-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-talentbridge}
+      POSTGRES_USER: ${DB_USER:-talentbridge_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d
+    networks:
+      - talentbridge-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-talentbridge_user} -d ${DB_NAME:-talentbridge}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  talentbridge-network:
+    driver: bridge
