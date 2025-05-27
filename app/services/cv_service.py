@@ -169,24 +169,23 @@ class CVService:
             db.rollback()
             raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
 
-    async def upload_cv(self, db: Session, file: UploadFile, user_id: str) -> Dict[str, Any]:
+    async def upload_cv(self, db: Session, file: UploadFile, user_id: int) -> Dict[str, Any]:
         """
         Upload and parse a CV file
 
         Args:
             db: Database session
             file: Uploaded file
-            user_id: User ID as string
+            user_id: User ID (integer)
 
         Returns:
             Dictionary with upload result
         """
         # Validate inputs
-        user_id_int = self._validate_user_id(user_id)
         file_extension = self._validate_file(file)
 
         # Generate file path
-        file_path = self._generate_unique_filename(user_id_int, file.filename)
+        file_path = self._generate_unique_filename(user_id, file.filename)
 
         try:
             # Read and save file
@@ -198,7 +197,7 @@ class CVService:
 
             # Save to database
             cv_record = self._save_cv_to_database(
-                db, user_id_int, file_path, file.filename,
+                db, user_id, file_path, file.filename,
                 file_size, file_extension, parsed_data
             )
 
