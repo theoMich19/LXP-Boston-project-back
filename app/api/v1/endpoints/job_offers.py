@@ -29,19 +29,3 @@ async def create_job_offer(
         db: Session = Depends(get_db)
 ):
     return job_offer_service.create_job_offer(db, job_data, current_user)
-
-
-@router.get("/info")
-async def jobs_info():
-    """Job offers API information"""
-    return {
-        "message": "TalentBridge Job Offers API",
-        "endpoints": {
-            "list_jobs": "GET /",
-            "create_job": "POST /",
-        },
-        "access": {
-            "list": "Everyone",
-            "create": "HR users only"
-        }
-    }
