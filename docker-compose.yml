@@ -24,6 +24,37 @@ services:
       timeout: 10s
       retries: 3
 
+  # API Backend FastAPI
+  talentbridge-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: talentbridge-api
+    restart: unless-stopped
+    environment:
+      - DB_NAME=${DB_NAME:-talentbridge}
+      - DB_USER=${DB_USER:-talentbridge_user}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=talentbridge-db
+      - DB_PORT=5432
+      - DEBUG=true
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./uploads:/app/uploads
+      - .:/app
+    networks:
+      - talentbridge-network
+    depends_on:
+      talentbridge-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   postgres_data:
     driver: local
