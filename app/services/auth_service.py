@@ -27,7 +27,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
-    role = Column(String(50), nullable=False)  # visitor, candidate, hr
+    role = Column(String(50), nullable=False)  # candidate, hr
     company_id = Column(Integer)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -100,7 +100,7 @@ class AuthService:
             )
 
         # Validate role
-        valid_roles = {"visitor", "candidate", "hr"}
+        valid_roles = {"candidate", "hr"}
         if role not in valid_roles:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -194,17 +194,61 @@ class AuthService:
 
         return user
 
+    def create_user(self, db: Session, email: str, password: str, first_name: str,
+                    last_name: str, role: str = "candidate", company_id: Optional[int] = None) -> User:
+        """Create a new user"""
+
+        # Check if user already exists
+        if self.get_user_by_email(db, email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+
+        # Validate role
+        valid_roles = {"candidate", "hr"}
+        if role not in valid_roles:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
+            )
+
+        # Hash password and create user
+        hashed_password = self.get_password_hash(password)
+
+        user = User(
+            email=email,
+            password_hash=hashed_password,
+            first_name=first_name,
+            last_name=last_name,
+            role=role,
+            company_id=company_id,
+            is_active=True
+        )
+
+        try:
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            return user
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create user: {str(e)}"
+            )
+
     async def register_and_login_user(self, db: Session, user_data) -> dict:
         """Register a new user and automatically login"""
-        # Create user
+        # Create user avec valeurs par défaut
         user = self.create_user(
             db=db,
             email=user_data.email,
             password=user_data.password,
             first_name=user_data.first_name,
             last_name=user_data.last_name,
-            role=user_data.role,
-            company_id=user_data.company_id
+            role=user_data.role or "candidate",  # Utilise "candidate" si role n'est pas fourni
+            company_id=user_data.company_id  # Peut être None
         )
 
         # Automatically login after registration
