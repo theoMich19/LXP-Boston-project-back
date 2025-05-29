@@ -8,11 +8,11 @@ class UserBase(BaseModel):
     email: EmailStr
     first_name: str
     last_name: str
-    role: str
+    role: str = "candidate"
 
     @validator('role')
     def validate_role(cls, v):
-        valid_roles = {'visitor', 'candidate', 'hr'}
+        valid_roles = {'candidate', 'hr'}
         if v not in valid_roles:
             raise ValueError(f'Role must be one of: {", ".join(valid_roles)}')
         return v
@@ -21,6 +21,7 @@ class UserBase(BaseModel):
 class UserRegister(UserBase):
     """Schema for user registration"""
     password: str
+    role: str = "candidate"
     company_id: Optional[int] = None
 
     @validator('password')

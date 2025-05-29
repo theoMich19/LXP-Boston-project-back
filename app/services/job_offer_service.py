@@ -195,7 +195,7 @@ class JobOfferService:
 
             return {
                 "total": len(job_offers_list),
-                "job_offers": job_offers_list,
+                "data": job_offers_list,
                 "message": f"Found {len(job_offers_list)} active job offers"
             }
 
