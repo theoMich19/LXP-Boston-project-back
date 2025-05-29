@@ -84,5 +84,5 @@ class JobOfferList(BaseModel):
 class JobOfferListResponse(BaseModel):
     """Schema for job offers list response"""
     total: int
-    job_offers: List[JobOfferList]
+    data: List[JobOfferList]
     message: str
