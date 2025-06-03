@@ -255,7 +255,7 @@ class MatchingService:
             if not cv_skills:
                 return {
                     "data": [],
-                    "total_matches": 0,
+                    "total": 0,
                     "user_skills": [],
                     "message": "No skills detected in your CV. Please ensure your CV contains technical skills and experience."
                 }
@@ -266,7 +266,7 @@ class MatchingService:
             if not job_offers:
                 return {
                     "data": [],
-                    "total_matches": 0,
+                    "total": 0,
                     "user_skills": cv_skill_names,
                     "message": "No active job offers available at the moment."
                 }
@@ -287,7 +287,7 @@ class MatchingService:
                 # Ne garder que les matches avec un score minimum
                 if score >= 10:  # Score minimum de 10%
                     matches.append({
-                        "job_id": job['id'],
+                        "id": job['id'],  # Changé de job_id à id
                         "title": job['title'],
                         "company_name": job['company_name'],
                         "company_id": job['company_id'],
@@ -296,7 +296,9 @@ class MatchingService:
                         "missing_skills": missing_skills[:5],  # Limiter à 5 compétences manquantes
                         "salary_min": job['salary_min'],
                         "salary_max": job['salary_max'],
-                        "description_preview": self._create_description_preview(job['description'])
+                        "description": self._create_description_preview(job['description']),
+                        # Changé de description_preview à description
+                        "created_at": job['created_at']  # Ajouté created_at
                     })
 
             # Trier par score de compatibilité (décroissant)
@@ -307,7 +309,7 @@ class MatchingService:
 
             result = {
                 "data": top_matches,
-                "total_matches": len(matches),
+                "total": len(matches),
                 "user_skills": cv_skill_names,
                 "message": f"Found {len(matches)} job matches based on your CV analysis."
             }
