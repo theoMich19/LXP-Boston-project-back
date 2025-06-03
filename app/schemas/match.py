@@ -25,7 +25,7 @@ class JobMatch(BaseModel):
 
 class MatchResponse(BaseModel):
     """Schema for matches response"""
-    matches: List[JobMatch]
+    data: List[JobMatch]
     total_matches: int
     user_skills: List[str]
     message: str

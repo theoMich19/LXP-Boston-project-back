@@ -254,7 +254,7 @@ class MatchingService:
 
             if not cv_skills:
                 return {
-                    "matches": [],
+                    "data": [],
                     "total_matches": 0,
                     "user_skills": [],
                     "message": "No skills detected in your CV. Please ensure your CV contains technical skills and experience."
@@ -265,7 +265,7 @@ class MatchingService:
 
             if not job_offers:
                 return {
-                    "matches": [],
+                    "data": [],
                     "total_matches": 0,
                     "user_skills": cv_skill_names,
                     "message": "No active job offers available at the moment."
@@ -306,7 +306,7 @@ class MatchingService:
             top_matches = matches[:limit]
 
             result = {
-                "matches": top_matches,
+                "data": top_matches,
                 "total_matches": len(matches),
                 "user_skills": cv_skill_names,
                 "message": f"Found {len(matches)} job matches based on your CV analysis."
