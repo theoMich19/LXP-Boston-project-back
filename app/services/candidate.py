@@ -15,10 +15,10 @@ def get_candidates(
 ) -> List[Candidate]:
     return db.query(Candidate).offset(skip).limit(limit).all()
 
-def create_candidate(db: Session, candidate: CandidateCreate, user_id: int) -> Candidate:
+def create_candidate(db: Session, candidate: CandidateCreate) -> Candidate:
     db_candidate = Candidate(
         **candidate.model_dump(),
-        user_id=user_id
+        is_active=True
     )
     db.add(db_candidate)
     db.commit()

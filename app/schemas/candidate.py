@@ -18,7 +18,6 @@ class CandidateUpdate(CandidateBase):
 
 class CandidateInDBBase(CandidateBase):
     id: int
-    user_id: int
     is_active: bool
 
     class Config:
