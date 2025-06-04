@@ -11,7 +11,7 @@ Base = declarative_base()
 class Company(Base):
     __tablename__ = "companies"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(255), nullable=False)
     city = Column(String(100))
     country = Column(String(100))
