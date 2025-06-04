@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.schemas.candidate import Candidate, CandidateCreate, CandidateUpdate
 from app.services import candidate as candidate_service
-from app.core.dependencies import require_hr
+from app.core.dependencies import get_current_user
 from app.services.auth_service import User
 
 router = APIRouter()
@@ -15,7 +15,7 @@ def read_candidates(
     db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(require_hr)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Récupérer tous les candidats.
@@ -28,7 +28,7 @@ def create_candidate(
     *,
     db: Session = Depends(get_db),
     candidate_in: CandidateCreate,
-    current_user: User = Depends(require_hr)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Créer un nouveau candidat.
@@ -44,20 +44,16 @@ def create_candidate(
 
 @router.get("/{candidate_id}", response_model=Candidate)
 def read_candidate(
-    *,
-    db: Session = Depends(get_db),
     candidate_id: int,
-    current_user: User = Depends(require_hr)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Récupérer un candidat par son ID.
+    Récupérer un candidat.
     """
     candidate = candidate_service.get_candidate(db, candidate_id=candidate_id)
     if not candidate:
-        raise HTTPException(
-            status_code=404,
-            detail="Candidat non trouvé"
-        )
+        raise HTTPException(status_code=404, detail="Candidat non trouvé")
     return candidate
 
 @router.put("/{candidate_id}", response_model=Candidate)
@@ -66,18 +62,14 @@ def update_candidate(
     db: Session = Depends(get_db),
     candidate_id: int,
     candidate_in: CandidateUpdate,
-    current_user: User = Depends(require_hr)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Mettre à jour un candidat.
     """
-    candidate = candidate_service.get_candidate(db, candidate_id=candidate_id)
-    if not candidate:
-        raise HTTPException(
-            status_code=404,
-            detail="Candidat non trouvé"
-        )
     candidate = candidate_service.update_candidate(db, candidate_id=candidate_id, candidate=candidate_in)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidat non trouvé")
     return candidate
 
 @router.delete("/{candidate_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -85,16 +77,12 @@ def delete_candidate(
     *,
     db: Session = Depends(get_db),
     candidate_id: int,
-    current_user: User = Depends(require_hr)
+    current_user: User = Depends(get_current_user)
 ):
     """
     Supprimer un candidat.
     """
-    candidate = candidate_service.get_candidate(db, candidate_id=candidate_id)
-    if not candidate:
-        raise HTTPException(
-            status_code=404,
-            detail="Candidat non trouvé"
-        )
-    candidate_service.delete_candidate(db, candidate_id=candidate_id)
+    success = candidate_service.delete_candidate(db, candidate_id=candidate_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Candidat non trouvé")
     return None 
