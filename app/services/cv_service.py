@@ -7,9 +7,11 @@ import PyPDF2
 from docx import Document
 from fastapi import UploadFile, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, String, DateTime, Integer
+from sqlalchemy import Column, String, DateTime, Integer, desc
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.declarative import declarative_base
+from app.models.cv import CV
+from app.schemas.cv import LastCVUpload
 
 # Configuration
 UPLOAD_DIR = "uploads/cvs"
@@ -221,6 +223,24 @@ class CVService:
             # Cleanup and raise new HTTP exception for unexpected errors
             self._cleanup_file(file_path)
             raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
+
+    def get_last_cv_upload(self, db: Session, candidate_id: int) -> LastCVUpload:
+        """
+        Récupère la date du dernier CV uploadé par un candidat.
+        """
+        last_cv = db.query(CV)\
+            .filter(CV.user_id == candidate_id)\
+            .order_by(desc(CV.upload_date))\
+            .first()
+        
+        if not last_cv:
+            return LastCVUpload(has_cv=False)
+        
+        return LastCVUpload(
+            last_upload_date=last_cv.upload_date,
+            file_name=last_cv.original_filename,
+            has_cv=True
+        )
 
 
 # Service instance

@@ -6,7 +6,8 @@ import uuid
 
 class CVBase(BaseModel):
     """Schéma de base pour un CV"""
-    pass
+    file_name: str
+    file_path: str
 
 
 class CVCreate(CVBase):
@@ -70,3 +71,22 @@ class ParsedCVData(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CVInDBBase(CVBase):
+    id: int
+    candidate_id: int
+    upload_date: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class CV(CVInDBBase):
+    pass
+
+
+class LastCVUpload(BaseModel):
+    last_upload_date: Optional[datetime] = None
+    file_name: Optional[str] = None
+    has_cv: bool = False

@@ -19,6 +19,18 @@ app = FastAPI(
         {
             "name": "cvs",
             "description": "CV upload and management (requires authentication)"
+        },
+        {
+            "name": "candidates",
+            "description": "Candidate management endpoints (HR only)"
+        },
+        {
+            "name": "jobs",
+            "description": "Job offers management"
+        },
+        {
+            "name": "matching",
+            "description": "Job matching and statistics"
         }
     ]
 )
