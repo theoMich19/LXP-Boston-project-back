@@ -50,7 +50,7 @@ def update_candidate(
     
     # Mise à jour des champs autorisés
     for field, value in candidate_in.items():
-        if field in ["first_name", "last_name", "phone"]:
+        if field in ["first_name", "last_name"]:
             setattr(candidate, field, value)
     
     db.commit()
