@@ -229,7 +229,7 @@ class CVService:
         Récupère la date du dernier CV uploadé par un candidat.
         """
         last_cv = db.query(CV)\
-            .filter(CV.candidate_id == candidate_id)\
+            .filter(CV.user_id == candidate_id)\
             .order_by(desc(CV.upload_date))\
             .first()
         
@@ -238,7 +238,7 @@ class CVService:
         
         return LastCVUpload(
             last_upload_date=last_cv.upload_date,
-            file_name=last_cv.file_name,
+            file_name=last_cv.original_filename,
             has_cv=True
         )
 
