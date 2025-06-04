@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel
 from typing import List, Optional
 from decimal import Decimal
@@ -11,7 +13,7 @@ class MatchedSkill(BaseModel):
 
 class JobMatch(BaseModel):
     """Schema for a job match result"""
-    job_id: int
+    id: int  # Changé de job_id à id
     title: str
     company_name: str
     company_id: int
@@ -20,13 +22,14 @@ class JobMatch(BaseModel):
     missing_skills: List[str]
     salary_min: Optional[Decimal] = None
     salary_max: Optional[Decimal] = None
-    description_preview: str
+    description: str
+    created_at: datetime
 
 
 class MatchResponse(BaseModel):
     """Schema for matches response"""
-    matches: List[JobMatch]
-    total_matches: int
+    data: List[JobMatch]
+    total: int
     user_skills: List[str]
     message: str
 

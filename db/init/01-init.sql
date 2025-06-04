@@ -45,6 +45,18 @@ CREATE TABLE IF NOT EXISTS job_offers (
     CONSTRAINT chk_salary_range CHECK (salary_min IS NULL OR salary_max IS NULL OR salary_min <= salary_max)
 );
 
+-- Table Applications (candidatures)
+CREATE TABLE IF NOT EXISTS applications (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    job_offer_id INTEGER NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'rejected', 'accepted')),
+    applied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    CONSTRAINT fk_applications_job_offer FOREIGN KEY (job_offer_id) REFERENCES job_offers(id) ON DELETE CASCADE,
+    CONSTRAINT unique_user_job_application UNIQUE (user_id, job_offer_id)
+);
+
 -- Table Tags
 CREATE TABLE IF NOT EXISTS tags (
     id SERIAL PRIMARY KEY,
@@ -85,6 +97,10 @@ CREATE INDEX IF NOT EXISTS idx_job_offers_company ON job_offers(company_id);
 CREATE INDEX IF NOT EXISTS idx_job_offers_status ON job_offers(status);
 CREATE INDEX IF NOT EXISTS idx_job_offers_salary_min ON job_offers(salary_min);
 CREATE INDEX IF NOT EXISTS idx_job_offers_salary_max ON job_offers(salary_max);
+CREATE INDEX IF NOT EXISTS idx_applications_user ON applications(user_id);
+CREATE INDEX IF NOT EXISTS idx_applications_job_offer ON applications(job_offer_id);
+CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status);
+CREATE INDEX IF NOT EXISTS idx_applications_applied_at ON applications(applied_at);
 CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
 CREATE INDEX IF NOT EXISTS idx_job_offer_tags_job_offer ON job_offer_tags(job_offer_id);
 CREATE INDEX IF NOT EXISTS idx_job_offer_tags_tag ON job_offer_tags(tag_id);
@@ -239,159 +255,160 @@ Profil:
 - Passion pour les nouvelles technologies
 - Esprit startup et autonomie
 - Bon niveau d''anglais',
-(SELECT id FROM companies WHERE email = 'hello@startupinc.fr'),
-(SELECT id FROM users WHERE email = 'jean.martin@startupinc.fr'),
-42000.00, 55000.00, 'active'),
+ (SELECT id FROM companies WHERE email = 'hello@startupinc.fr'),
+ (SELECT id FROM users WHERE email = 'jean.martin@startupinc.fr'),
+ 42000.00, 55000.00, 'active'),
 
 ('Lead Developer Python',
-'Nous cherchons un Lead Developer Python pour diriger notre équipe technique et faire évoluer notre architecture.
+ 'Nous cherchons un Lead Developer Python pour diriger notre équipe technique et faire évoluer notre architecture.
 
-Responsabilités:
-- Management technique d''une équipe de 5 développeurs
-- Architecture et évolution de notre plateforme Python/Django
-- Code review et bonnes pratiques
-- Recrutement et formation
+ Responsabilités:
+ - Management technique d''une équipe de 5 développeurs
+ - Architecture et évolution de notre plateforme Python/Django
+ - Code review et bonnes pratiques
+ - Recrutement et formation
 
-Compétences techniques:
-- 6+ ans d''expérience Python/Django
-- Expérience en management d''équipe
-- Architecture microservices
-- Bases de données (PostgreSQL, Redis)
-- Méthodes Agiles
+ Compétences techniques:
+ - 6+ ans d''expérience Python/Django
+ - Expérience en management d''équipe
+ - Architecture microservices
+ - Bases de données (PostgreSQL, Redis)
+ - Méthodes Agiles
 
-Startup benefits:
-- Equity package
-- Budget formation 2k€/an
-- MacBook Pro + setup home office
-- Team building réguliers
-- Horaires flexibles',
-(SELECT id FROM companies WHERE email = 'hello@startupinc.fr'),
-(SELECT id FROM users WHERE email = 'jean.martin@startupinc.fr'),
-60000.00, 75000.00, 'active'),
+ Startup benefits:
+ - Equity package
+ - Budget formation 2k€/an
+ - MacBook Pro + setup home office
+ - Team building réguliers
+ - Horaires flexibles',
+ (SELECT id FROM companies WHERE email = 'hello@startupinc.fr'),
+ (SELECT id FROM users WHERE email = 'jean.martin@startupinc.fr'),
+ 60000.00, 75000.00, 'active'),
 
 -- Offres chez DevSolutions (créées par Sophie Bernard)
 ('Développeur Backend Java Spring Boot',
-'Entreprise de conseil recherche un développeur Backend Java pour des missions client variées.
+ 'Entreprise de conseil recherche un développeur Backend Java pour des missions client variées.
 
-Missions:
-- Développement d''applications Java/Spring Boot
-- Intégration avec des APIs externes
-- Optimisation des performances
-- Documentation technique
+ Missions:
+ - Développement d''applications Java/Spring Boot
+ - Intégration avec des APIs externes
+ - Optimisation des performances
+ - Documentation technique
 
-Technologies:
-- Java 11+, Spring Boot, Spring Security
-- Bases de données relationnelles
-- Maven/Gradle, Git
-- Tests unitaires et d''intégration
+ Technologies:
+ - Java 11+, Spring Boot, Spring Security
+ - Bases de données relationnelles
+ - Maven/Gradle, Git
+ - Tests unitaires et d''intégration
 
-Profil:
-- 3-5 ans d''expérience Java/Spring
-- Rigoureux et méthodique
-- Capacité d''adaptation (missions client)
-- Certifications Java appréciées',
-(SELECT id FROM companies WHERE email = 'info@devsolutions.fr'),
-(SELECT id FROM users WHERE email = 'sophie.bernard@devsolutions.fr'),
-45000.00, 58000.00, 'active'),
+ Profil:
+ - 3-5 ans d''expérience Java/Spring
+ - Rigoureux et méthodique
+ - Capacité d''adaptation (missions client)
+ - Certifications Java appréciées',
+ (SELECT id FROM companies WHERE email = 'info@devsolutions.fr'),
+ (SELECT id FROM users WHERE email = 'sophie.bernard@devsolutions.fr'),
+ 45000.00, 58000.00, 'active'),
 
 -- Offres chez InnovateTech (créées par Pierre Leroy)
 ('Data Scientist Machine Learning',
-'Scale-up tech recherche un Data Scientist pour développer nos algorithmes de machine learning.
+ 'Scale-up tech recherche un Data Scientist pour développer nos algorithmes de machine learning.
 
-Missions:
-- Développement de modèles ML/IA
-- Analyse de données massives
-- Déploiement de modèles en production
-- Collaboration avec les équipes produit
+ Missions:
+ - Développement de modèles ML/IA
+ - Analyse de données massives
+ - Déploiement de modèles en production
+ - Collaboration avec les équipes produit
 
-Compétences:
-- Python (Pandas, Scikit-learn, TensorFlow)
-- Statistiques et mathématiques
-- SQL, bases de données
-- MLOps (Docker, Kubernetes)
-- Cloud (AWS/GCP)
+ Compétences:
+ - Python (Pandas, Scikit-learn, TensorFlow)
+ - Statistiques et mathématiques
+ - SQL, bases de données
+ - MLOps (Docker, Kubernetes)
+ - Cloud (AWS/GCP)
 
-Formation:
-- Master/Doctorat en Data Science, Mathématiques ou équivalent
-- 2+ ans d''expérience en ML
-- Publications ou projets personnels appréciés
+ Formation:
+ - Master/Doctorat en Data Science, Mathématiques ou équivalent
+ - 2+ ans d''expérience en ML
+ - Publications ou projets personnels appréciés
 
-Environnement:
-- Équipe R&D de 10 personnes
-- Infrastructure cloud dédiée
-- Participation à des conférences
-- Open source encouragé',
-(SELECT id FROM companies WHERE email = 'contact@innovatetech.fr'),
-(SELECT id FROM users WHERE email = 'pierre.leroy@innovatetech.fr'),
-55000.00, 70000.00, 'active'),
+ Environnement:
+ - Équipe R&D de 10 personnes
+ - Infrastructure cloud dédiée
+ - Participation à des conférences
+ - Open source encouragé',
+ (SELECT id FROM companies WHERE email = 'contact@innovatetech.fr'),
+ (SELECT id FROM users WHERE email = 'pierre.leroy@innovatetech.fr'),
+ 55000.00, 70000.00, 'active'),
 
 ('Mobile Developer React Native',
-'Développeur Mobile React Native pour créer les apps de demain.
+ 'Développeur Mobile React Native pour créer les apps de demain.
 
-Projets:
-- Développement d''applications mobiles iOS/Android
-- Intégration avec des APIs REST/GraphQL
-- Optimisation des performances
-- Publication sur les stores
+ Projets:
+ - Développement d''applications mobiles iOS/Android
+ - Intégration avec des APIs REST/GraphQL
+ - Optimisation des performances
+ - Publication sur les stores
 
-Stack:
-- React Native, TypeScript
-- Redux/Context API
-- Firebase, AWS Amplify
-- CodePush, Flipper
-- Jest, Detox
+ Stack:
+ - React Native, TypeScript
+ - Redux/Context API
+ - Firebase, AWS Amplify
+ - CodePush, Flipper
+ - Jest, Detox
 
-Expérience:
-- 2+ ans en développement mobile
-- Apps publiées sur les stores
-- Connaissance native (Swift/Kotlin) appréciée
-- UX/UI sense
+ Expérience:
+ - 2+ ans en développement mobile
+ - Apps publiées sur les stores
+ - Connaissance native (Swift/Kotlin) appréciée
+ - UX/UI sense
 
-Avantages:
-- Projets innovants
-- iPhone/Android fournis
-- Télétravail 100% possible
-- Budget conférences/formations',
-(SELECT id FROM companies WHERE email = 'contact@innovatetech.fr'),
-(SELECT id FROM users WHERE email = 'pierre.leroy@innovatetech.fr'),
-45000.00, 60000.00, 'active'),
+ Avantages:
+ - Projets innovants
+ - iPhone/Android fournis
+ - Télétravail 100% possible
+ - Budget conférences/formations',
+ (SELECT id FROM companies WHERE email = 'contact@innovatetech.fr'),
+ (SELECT id FROM users WHERE email = 'pierre.leroy@innovatetech.fr'),
+ 45000.00, 60000.00, 'active'),
 
 -- Offre en remote chez CloudFirst
 ('Senior Software Engineer (Remote)',
-'Poste 100% remote pour développeur expérimenté dans une entreprise internationale.
+ 'Poste 100% remote pour développeur expérimenté dans une entreprise internationale.
 
-What you''ll do:
-- Design and implement scalable software solutions
-- Collaborate with distributed teams across time zones
-- Mentor junior developers
-- Contribute to technical architecture decisions
+ What you''ll do:
+ - Design and implement scalable software solutions
+ - Collaborate with distributed teams across time zones
+ - Mentor junior developers
+ - Contribute to technical architecture decisions
 
-Requirements:
-- 5+ years of software development experience
-- Proficiency in multiple programming languages
-- Experience with cloud platforms (AWS, GCP, Azure)
-- Strong communication skills in English
-- Remote work experience preferred
+ Requirements:
+ - 5+ years of software development experience
+ - Proficiency in multiple programming languages
+ - Experience with cloud platforms (AWS, GCP, Azure)
+ - Strong communication skills in English
+ - Remote work experience preferred
 
-Tech Stack:
-- Languages: Python, Go, JavaScript/TypeScript
-- Databases: PostgreSQL, MongoDB, Redis
-- Cloud: AWS, Kubernetes, Docker
-- Tools: Git, Jira, Slack, Zoom
+ Tech Stack:
+ - Languages: Python, Go, JavaScript/TypeScript
+ - Databases: PostgreSQL, MongoDB, Redis
+ - Cloud: AWS, Kubernetes, Docker
+ - Tools: Git, Jira, Slack, Zoom
 
-Benefits:
-- 100% remote work
-- Competitive salary + equity
-- Health insurance
-- Home office budget
-- Flexible working hours
-- Annual company retreat',
-(SELECT id FROM companies WHERE email = 'hello@cloudfirst.fr'),
-(SELECT id FROM users WHERE email = 'marie.dupont@techcorp.fr'),
-65000.00, 85000.00, 'active');
+ Benefits:
+ - 100% remote work
+ - Competitive salary + equity
+ - Health insurance
+ - Home office budget
+ - Flexible working hours
+ - Annual company retreat',
+ (SELECT id FROM companies WHERE email = 'hello@cloudfirst.fr'),
+ (SELECT id FROM users WHERE email = 'marie.dupont@techcorp.fr'),
+ 65000.00, 85000.00, 'active');
 
 -- CVs de test
-INSERT INTO cvs (user_id, file_path, original_filename, file_size, file_type, parsed_data, upload_date) VALUES
+INSERT INTO cvs (user_id, file_path, original_filename, file_size, file_type, parsed_data, upload_date)
+VALUES
 -- CV pour Alice Dubois (user_id = 6)
 (6, 'uploads/cvs/alice_cv_frontend.pdf', 'CV_Alice_Frontend_Developer.pdf', '2567890', 'pdf',
  '{"raw_text": "Alice Dubois\\nDéveloppeur Frontend\\nParis, France\\nalice.dubois@gmail.com\\n+33 6 12 34 56 78\\n\\nEXPÉRIENCE PROFESSIONNELLE\\n\\nDéveloppeur Frontend Senior - WebAgency (2021-2024)\\n• Développement d''interfaces utilisateur avec React.js et Vue.js\\n• Collaboration avec l''équipe UX/UI pour l''implémentation des designs\\n• Optimisation des performances web (Core Web Vitals)\\n• Encadrement de 2 développeurs junior\\n• Migration de jQuery vers React pour 5 projets clients\\n\\nDéveloppeur Frontend - DigitalStudio (2019-2021)\\n• Création de sites web responsive avec HTML5, CSS3, JavaScript\\n• Intégration de maquettes Figma/Adobe XD\\n• Développement de composants réutilisables\\n• Tests automatisés avec Jest et Cypress\\n\\nCOMPÉTENCES TECHNIQUES\\n• Frontend: React.js, Vue.js, Angular, TypeScript\\n• Styling: CSS3, SASS, Styled Components, Tailwind CSS\\n• JavaScript: ES6+, jQuery, Webpack, Vite\\n• Outils: Git, NPM, Yarn, VS Code\\n• Tests: Jest, React Testing Library, Cypress\\n• Design: Figma, Adobe Creative Suite\\n\\nFORMATION\\n• Master Informatique - Université Paris Diderot (2019)\\n• Certification React Developer - Meta (2022)\\n• Formation TypeScript - École 42 (2023)\\n\\nLANGUES\\n• Français (natif)\\n• Anglais (courant - C1)\\n• Espagnol (intermédiaire - B2)", "extracted_at": "2025-05-26T10:30:00", "text_length": 1247, "skills": ["React", "Vue.js", "JavaScript", "TypeScript", "CSS3", "HTML5"], "email": "alice.dubois@gmail.com", "experience_years": 5}',
