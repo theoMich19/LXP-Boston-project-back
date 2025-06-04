@@ -1,35 +1,11 @@
 from typing import List, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from sqlalchemy import Column, String, Integer, Text, DateTime, Numeric
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+
+from app.db.model import JobOffer, JobOfferTag
 
 Base = declarative_base()
-
-
-class JobOffer(Base):
-    __tablename__ = "job_offers"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    title = Column(String(255), nullable=False)
-    description = Column(Text)
-    company_id = Column(Integer, nullable=False)
-    created_by = Column(Integer, nullable=False)
-    salary_min = Column(Numeric(10, 2))
-    salary_max = Column(Numeric(10, 2))
-    status = Column(String(50), default="active")
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow)
-
-
-class JobOfferTag(Base):
-    __tablename__ = "job_offer_tags"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    job_offer_id = Column(Integer, nullable=False)
-    tag_id = Column(Integer, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class JobOfferService:
