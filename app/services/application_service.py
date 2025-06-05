@@ -3,132 +3,90 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from app.schemas.applications import ApplicationCreate, ApplicationStatus
 from app.db.model import Application, JobOffer, User, Company, CV
-import uuid
 
 
 class ApplicationService:
-    """Service pour la gestion des candidatures"""
+    """Service for application management - Integer IDs version"""
 
     def __init__(self):
         pass
 
-    def _validate_job_offer_exists(self, db: Session, job_offer_id: str) -> JobOffer:
-        """Vérifier que l'offre d'emploi existe et est active"""
-        try:
-            # Convertir en UUID si nécessaire
-            if isinstance(job_offer_id, str):
-                job_offer_uuid = uuid.UUID(job_offer_id)
-            else:
-                job_offer_uuid = job_offer_id
-
-            job_offer = db.query(JobOffer).filter(JobOffer.id == job_offer_uuid).first()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Format d'ID d'offre invalide"
-            )
+    def _validate_job_offer_exists(self, db: Session, job_offer_id: int) -> JobOffer:
+        """Validate that the job offer exists and is active"""
+        job_offer = db.query(JobOffer).filter(JobOffer.id == job_offer_id).first()
 
         if not job_offer:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Offre d'emploi non trouvée"
+                detail="Job offer not found"
             )
 
         if job_offer.status != "active":
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cette offre d'emploi n'est plus active"
+                detail="This job offer is no longer active"
             )
 
         return job_offer
 
-    def _validate_user_is_candidate(self, db: Session, user_id: str) -> User:
-        """Vérifier que l'utilisateur est bien un candidat"""
-        try:
-            # Convertir en UUID si nécessaire
-            if isinstance(user_id, str):
-                user_uuid = uuid.UUID(user_id)
-            else:
-                user_uuid = user_id
-
-            user = db.query(User).filter(User.id == user_uuid).first()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Format d'ID utilisateur invalide"
-            )
+    def _validate_user_is_candidate(self, db: Session, user_id: int) -> User:
+        """Validate that the user is a candidate"""
+        user = db.query(User).filter(User.id == user_id).first()
 
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Utilisateur non trouvé"
+                detail="User not found"
             )
 
         if user.role != "candidate":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Seuls les candidats peuvent postuler"
+                detail="Only candidates can apply"
             )
 
         return user
 
-    def _check_existing_application(self, db: Session, user_id: str, job_offer_id: str) -> None:
-        """Vérifier si le candidat a déjà postulé à cette offre"""
-        try:
-            user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-            job_offer_uuid = uuid.UUID(job_offer_id) if isinstance(job_offer_id, str) else job_offer_id
-
-            existing_application = db.query(Application).filter(
-                Application.user_id == user_uuid,
-                Application.job_offer_id == job_offer_uuid
-            ).first()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Format d'ID invalide"
-            )
+    def _check_existing_application(self, db: Session, user_id: int, job_offer_id: int) -> None:
+        """Check if the candidate has already applied to this offer"""
+        existing_application = db.query(Application).filter(
+            Application.user_id == user_id,
+            Application.job_offer_id == job_offer_id
+        ).first()
 
         if existing_application:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Vous avez déjà postulé à cette offre"
+                detail="You have already applied to this offer"
             )
 
-    def _validate_hr_access_to_job(self, db: Session, hr_user: User, job_offer_id: str) -> JobOffer:
-        """Vérifier qu'un utilisateur RH a accès à cette offre d'emploi"""
+    def _validate_hr_access_to_job(self, db: Session, hr_user: User, job_offer_id: int) -> JobOffer:
+        """Validate that an HR user has access to this job offer"""
         if hr_user.role != "hr":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Accès réservé aux RH"
+                detail="Access restricted to HR"
             )
 
-        try:
-            job_offer_uuid = uuid.UUID(job_offer_id) if isinstance(job_offer_id, str) else job_offer_id
-
-            job_offer = db.query(JobOffer).filter(
-                JobOffer.id == job_offer_uuid,
-                JobOffer.company_id == hr_user.company_id
-            ).first()
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Format d'ID d'offre invalide"
-            )
+        job_offer = db.query(JobOffer).filter(
+            JobOffer.id == job_offer_id,
+            JobOffer.company_id == hr_user.company_id
+        ).first()
 
         if not job_offer:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Accès non autorisé à cette offre"
+                detail="Unauthorized access to this offer"
             )
 
         return job_offer
 
     def _validate_hr_access_to_application(self, db: Session, hr_user: User, application_id: int) -> Application:
-        """Vérifier qu'un utilisateur RH a accès à cette candidature"""
+        """Validate that an HR user has access to this application"""
         if hr_user.role != "hr":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Accès réservé aux RH"
+                detail="Access restricted to HR"
             )
 
         application = db.query(Application).join(JobOffer).filter(
@@ -139,26 +97,24 @@ class ApplicationService:
         if not application:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Accès non autorisé à cette candidature"
+                detail="Unauthorized access to this application"
             )
 
         return application
 
-    def _get_latest_cv_safely(self, db: Session, user_id: str) -> Optional[CV]:
-        """Récupérer le CV le plus récent de manière sécurisée"""
+    def _get_latest_cv_safely(self, db: Session, user_id: int) -> Optional[CV]:
+        """Get the latest CV safely"""
         try:
-            user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-
             latest_cv = db.query(CV).filter(
-                CV.user_id == user_uuid
+                CV.user_id == user_id
             ).order_by(CV.upload_date.desc()).first()
 
             return latest_cv
         except Exception as e:
-            print(f"Erreur lors de la récupération du CV pour l'utilisateur {user_id}: {e}")
+            print(f"Error retrieving CV for user {user_id}: {e}")
             return None
 
-    async def create_application(self, db: Session, application_data: ApplicationCreate, user_id: str) -> Dict[
+    async def create_application(self, db: Session, application_data: ApplicationCreate, user_id: int) -> Dict[
         str, Any]:
         """
         Créer une nouvelle candidature
@@ -166,7 +122,7 @@ class ApplicationService:
         Args:
             db: Session de base de données
             application_data: Données de la candidature
-            user_id: ID du candidat (UUID string)
+            user_id: ID du candidat (integer)
 
         Returns:
             Dictionnaire avec les informations de la candidature créée
@@ -177,15 +133,10 @@ class ApplicationService:
             job_offer = self._validate_job_offer_exists(db, application_data.job_offer_id)
             self._check_existing_application(db, user_id, application_data.job_offer_id)
 
-            # Convertir les IDs en UUID
-            user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-            job_offer_uuid = uuid.UUID(application_data.job_offer_id) if isinstance(application_data.job_offer_id,
-                                                                                    str) else application_data.job_offer_id
-
             # Créer la candidature
             new_application = Application(
-                user_id=user_uuid,
-                job_offer_id=job_offer_uuid,
+                user_id=user_id,
+                job_offer_id=application_data.job_offer_id,
                 status="pending"
             )
 
@@ -195,8 +146,8 @@ class ApplicationService:
 
             return {
                 "id": new_application.id,
-                "user_id": str(new_application.user_id),
-                "job_offer_id": str(new_application.job_offer_id),
+                "user_id": new_application.user_id,
+                "job_offer_id": new_application.job_offer_id,
                 "status": new_application.status,
                 "applied_at": new_application.applied_at,
                 "message": "Candidature envoyée avec succès"
@@ -212,23 +163,21 @@ class ApplicationService:
                 detail=f"Erreur lors de la création de la candidature: {str(e)}"
             )
 
-    async def get_candidate_applications(self, db: Session, user_id: str) -> List[Dict[str, Any]]:
+    async def get_candidate_applications(self, db: Session, user_id: int) -> List[Dict[str, Any]]:
         """
         Récupérer toutes les candidatures d'un candidat
 
         Args:
             db: Session de base de données
-            user_id: ID du candidat (UUID string)
+            user_id: ID du candidat (integer)
 
         Returns:
             Liste des candidatures avec informations des offres
         """
         try:
-            user_uuid = uuid.UUID(user_id) if isinstance(user_id, str) else user_id
-
             # Récupérer les candidatures du candidat
             applications = db.query(Application).filter(
-                Application.user_id == user_uuid
+                Application.user_id == user_id
             ).order_by(Application.applied_at.desc()).all()
 
             result = []
@@ -238,29 +187,36 @@ class ApplicationService:
                 if job_offer:
                     company = db.query(Company).filter(Company.id == job_offer.company_id).first()
 
+                    # Conversion sécurisée des salaires
+                    salary_min = None
+                    salary_max = None
+
+                    if job_offer.salary_min:
+                        try:
+                            salary_min = float(job_offer.salary_min)
+                        except (ValueError, TypeError):
+                            salary_min = None
+
+                    if job_offer.salary_max:
+                        try:
+                            salary_max = float(job_offer.salary_max)
+                        except (ValueError, TypeError):
+                            salary_max = None
+
                     result.append({
                         "id": app.id,
-                        "user_id": str(app.user_id),
-                        "job_offer_id": str(app.job_offer_id),
+                        "user_id": app.user_id,
+                        "job_offer_id": app.job_offer_id,
                         "status": app.status,
                         "applied_at": app.applied_at,
                         "job_title": job_offer.title,
                         "company_name": company.name if company else "N/A",
-                        "job_salary_min": float(
-                            job_offer.salary_min) if job_offer.salary_min and job_offer.salary_min.replace('.',
-                                                                                                           '').isdigit() else None,
-                        "job_salary_max": float(
-                            job_offer.salary_max) if job_offer.salary_max and job_offer.salary_max.replace('.',
-                                                                                                           '').isdigit() else None
+                        "job_salary_min": salary_min,
+                        "job_salary_max": salary_max
                     })
 
             return result
 
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Format d'ID utilisateur invalide"
-            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -270,33 +226,33 @@ class ApplicationService:
     async def update_application_status(self, db: Session, application_id: int, new_status: ApplicationStatus,
                                         hr_user: User) -> Dict[str, Any]:
         """
-        Mettre à jour le statut d'une candidature (RH uniquement)
+        Update application status (HR only)
 
         Args:
-            db: Session de base de données
-            application_id: ID de la candidature (integer)
-            new_status: Nouveau statut
-            hr_user: Utilisateur RH
+            db: Database session
+            application_id: Application ID (integer)
+            new_status: New status
+            hr_user: HR user
 
         Returns:
-            Dictionnaire avec les informations de la candidature mise à jour
+            Dictionary with updated application information
         """
         try:
-            # Vérifier l'accès RH à cette candidature
+            # Validate HR access to this application
             application = self._validate_hr_access_to_application(db, hr_user, application_id)
 
-            # Mettre à jour le statut
+            # Update status
             application.status = new_status.value
             db.commit()
             db.refresh(application)
 
             return {
                 "id": application.id,
-                "user_id": str(application.user_id),
-                "job_offer_id": str(application.job_offer_id),
+                "user_id": application.user_id,
+                "job_offer_id": application.job_offer_id,
                 "status": application.status,
                 "applied_at": application.applied_at,
-                "message": "Statut de la candidature mis à jour avec succès"
+                "message": "Application status updated successfully"
             }
 
         except HTTPException:
@@ -306,31 +262,29 @@ class ApplicationService:
             db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erreur lors de la mise à jour: {str(e)}"
+                detail=f"Error updating application: {str(e)}"
             )
 
-    async def get_job_applications(self, db: Session, job_offer_id: str, hr_user: User,
+    async def get_job_applications(self, db: Session, job_offer_id: int, hr_user: User,
                                    status_filter: Optional[str] = None) -> List[Dict[str, Any]]:
         """
-        Récupérer toutes les candidatures pour une offre spécifique (RH uniquement)
+        Get all applications for a specific job offer (HR only)
 
         Args:
-            db: Session de base de données
-            job_offer_id: ID de l'offre d'emploi (UUID string)
-            hr_user: Utilisateur RH
-            status_filter: Filtre par statut (optionnel)
+            db: Database session
+            job_offer_id: Job offer ID (integer)
+            hr_user: HR user
+            status_filter: Status filter (optional)
 
         Returns:
-            Liste des candidatures avec informations des candidats
+            List of applications with candidate information
         """
         try:
-            # Vérifier l'accès RH à cette offre
+            # Validate HR access to this job offer
             job_offer = self._validate_hr_access_to_job(db, hr_user, job_offer_id)
 
-            job_offer_uuid = uuid.UUID(job_offer_id) if isinstance(job_offer_id, str) else job_offer_id
-
-            # Récupérer les candidatures pour cette offre
-            query = db.query(Application).filter(Application.job_offer_id == job_offer_uuid)
+            # Get applications for this job offer
+            query = db.query(Application).filter(Application.job_offer_id == job_offer_id)
 
             if status_filter:
                 query = query.filter(Application.status == status_filter)
@@ -339,25 +293,25 @@ class ApplicationService:
 
             result = []
             for app in applications:
-                # Récupérer les informations du candidat
+                # Get candidate information
                 user = db.query(User).filter(User.id == app.user_id).first()
                 if user:
-                    # Récupérer le CV le plus récent du candidat de manière sécurisée
-                    latest_cv = self._get_latest_cv_safely(db, str(app.user_id))
+                    # Get candidate's latest CV safely
+                    latest_cv = self._get_latest_cv_safely(db, app.user_id)
 
-                    # Récupérer les informations de la compagnie
+                    # Get company information
                     company = db.query(Company).filter(Company.id == job_offer.company_id).first()
 
                     result.append({
                         "id": app.id,
-                        "user_id": str(app.user_id),
-                        "job_offer_id": str(app.job_offer_id),
+                        "user_id": app.user_id,
+                        "job_offer_id": app.job_offer_id,
                         "status": app.status,
                         "applied_at": app.applied_at,
                         "candidate_first_name": user.first_name,
                         "candidate_last_name": user.last_name,
                         "candidate_email": user.email,
-                        "cv_id": str(latest_cv.id) if latest_cv else None,
+                        "cv_id": latest_cv.id if latest_cv else None,
                         "cv_filename": latest_cv.original_filename if latest_cv else None,
                         "job_title": job_offer.title,
                         "company_name": company.name if company else "N/A"
@@ -365,15 +319,10 @@ class ApplicationService:
 
             return result
 
-        except ValueError:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Format d'ID d'offre invalide"
-            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erreur lors de la récupération des candidatures: {str(e)}"
+                detail=f"Error retrieving job applications: {str(e)}"
             )
 
 

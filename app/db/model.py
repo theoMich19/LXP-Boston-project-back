@@ -28,7 +28,7 @@ class Company(Base):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # ✅ Changé en Integer
     email = Column(String(255), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     first_name = Column(String(100), nullable=False)
@@ -49,11 +49,11 @@ class User(Base):
 class JobOffer(Base):
     __tablename__ = "job_offers"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # ✅ Changé en Integer pour cohérence
     title = Column(String(255), nullable=False)
     description = Column(Text)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # ✅ Changé en Integer
     salary_min = Column(String)
     salary_max = Column(String)
     status = Column(String(50), default="active")  # active, inactive, closed
@@ -70,8 +70,8 @@ class Application(Base):
     __tablename__ = "applications"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    job_offer_id = Column(UUID(as_uuid=True), ForeignKey("job_offers.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # ✅ Changé en Integer
+    job_offer_id = Column(Integer, ForeignKey("job_offers.id"), nullable=False)  # ✅ Changé en Integer
     status = Column(String(50), nullable=False, default="pending")
     applied_at = Column(DateTime, default=datetime.utcnow)
 
@@ -83,17 +83,17 @@ class Application(Base):
 class JobOfferTag(Base):
     __tablename__ = "job_offer_tags"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    job_offer_id = Column(UUID(as_uuid=True), ForeignKey("job_offers.id"), nullable=False)
-    tag_id = Column(UUID(as_uuid=True), ForeignKey("tags.id"), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # ✅ Changé en Integer
+    job_offer_id = Column(Integer, ForeignKey("job_offers.id"), nullable=False)  # ✅ Changé en Integer
+    tag_id = Column(Integer, ForeignKey("tags.id"), nullable=False)  # ✅ Changé en Integer
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class CV(Base):
     __tablename__ = "cvs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # ✅ Changé en Integer
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # ✅ Changé en Integer
     file_path = Column(String(500), nullable=False)
     original_filename = Column(String(255), nullable=False)
     file_size = Column(String)  # Taille en bytes
@@ -110,7 +110,7 @@ class CV(Base):
 class Tag(Base):
     __tablename__ = "tags"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)  # ✅ Changé en Integer
     name = Column(String(100), nullable=False, unique=True)
     description = Column(Text)
     created_at = Column(DateTime, default=datetime.utcnow)
