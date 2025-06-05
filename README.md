@@ -85,8 +85,3 @@ pytest tests/services/test_auth_service.py -v
 ```bash
 pytest --cov=app/services tests/services/
 ```
-
-### Structure des tests
-- Les tests sont organisés dans le dossier `tests/services/`
-- Chaque service a son propre fichier de test (ex: `test_auth_service.py`)
-- Les tests utilisent des mocks pour simuler la base de données
