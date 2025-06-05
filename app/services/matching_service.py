@@ -1,81 +1,145 @@
-import re
-from typing import List, Dict, Any, Tuple
+import json
+import requests
+from typing import List, Dict, Any
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from datetime import datetime
 import logging
 
+from app.services.prompt.matching_prompts import MatchingPrompts
+
 logger = logging.getLogger(__name__)
 
 
 class MatchingService:
-    """Service for CV-Job matching"""
+    """Service for CV-Job matching using Gemini AI"""
 
     def __init__(self):
-        # Mots-clés techniques avec leurs poids
-        self.skill_keywords = {
-            # Languages de programmation
-            'python': 3.0, 'java': 3.0, 'javascript': 3.0, 'typescript': 2.5,
-            'php': 2.5, 'c++': 3.0, 'c#': 2.5, 'go': 2.5, 'rust': 2.5,
-            'ruby': 2.5, 'swift': 2.5, 'kotlin': 2.5, 'scala': 2.5,
+        self.gemini_api_key = "AIzaSyBlJYaJHITKvX-XGvIWXYe-htKlsVK9BH8"
+        self.gemini_base_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
 
-            # Frameworks
-            'react': 2.5, 'vue': 2.5, 'angular': 2.5, 'django': 2.5,
-            'flask': 2.0, 'fastapi': 2.5, 'spring': 2.5, 'laravel': 2.0,
-            'express': 2.0, 'nodejs': 2.5, 'node.js': 2.5,
-
-            # Bases de données
-            'postgresql': 2.0, 'mysql': 2.0, 'mongodb': 2.0, 'redis': 2.0,
-            'elasticsearch': 2.0, 'sqlite': 1.5, 'oracle': 2.0,
-
-            # DevOps & Cloud
-            'docker': 2.5, 'kubernetes': 3.0, 'aws': 3.0, 'azure': 2.5,
-            'gcp': 2.5, 'terraform': 2.5, 'jenkins': 2.0, 'gitlab': 1.5,
-            'github': 1.5, 'ci/cd': 2.0,
-
-            # Frontend
-            'html': 1.5, 'css': 1.5, 'sass': 1.5, 'tailwind': 1.5,
-            'bootstrap': 1.0, 'webpack': 2.0, 'vite': 1.5,
-
-            # Outils
-            'git': 1.5, 'jira': 1.0, 'agile': 1.5, 'scrum': 1.5,
-            'rest': 1.5, 'api': 1.5, 'graphql': 2.0, 'microservices': 2.5,
-
-            # Concepts
-            'machine learning': 3.0, 'ai': 2.5, 'data science': 3.0,
-            'blockchain': 2.5, 'iot': 2.0, 'mobile': 2.0,
-        }
-
-        # Cache simple pour les résultats
+        # Cache pour les résultats
         self._cache = {}
         self._cache_ttl = 300  # 5 minutes
 
-    def _extract_skills_from_text(self, text: str) -> List[Dict[str, Any]]:
-        """Extract skills from text with weights"""
-        if not text:
-            return []
+    def _call_gemini_api(self, prompt: str) -> str:
+        """Call Gemini API for content generation"""
+        try:
+            headers = {
+                "Content-Type": "application/json",
+            }
 
-        text_lower = text.lower()
-        found_skills = []
+            payload = {
+                "contents": [{
+                    "parts": [{
+                        "text": prompt
+                    }]
+                }],
+                "generationConfig": {
+                    "temperature": 0.1,
+                    "topK": 1,
+                    "topP": 1,
+                    "maxOutputTokens": 1024,
+                }
+            }
 
-        for skill, weight in self.skill_keywords.items():
-            # Recherche avec regex pour éviter les faux positifs
-            pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-            matches = re.findall(pattern, text_lower)
+            url = f"{self.gemini_base_url}?key={self.gemini_api_key}"
+            response = requests.post(url, headers=headers, json=payload, timeout=30)
 
-            if matches:
-                # Compter les occurrences pour ajuster le poids
-                occurrences = len(matches)
-                adjusted_weight = weight * min(occurrences, 3)  # Max 3x le poids
+            if response.status_code != 200:
+                logger.error(f"Gemini API error: {response.status_code} - {response.text}")
+                raise Exception(f"Gemini API error: {response.status_code}")
 
-                found_skills.append({
-                    'skill': skill,
-                    'weight': adjusted_weight,
-                    'occurrences': occurrences
-                })
+            result = response.json()
+            if 'candidates' in result and len(result['candidates']) > 0:
+                return result['candidates'][0]['content']['parts'][0]['text']
+            else:
+                raise Exception("No response from Gemini API")
 
-        return found_skills
+        except requests.exceptions.Timeout:
+            logger.error("Gemini API timeout")
+            raise Exception("AI analysis timeout")
+        except Exception as e:
+            logger.error(f"Gemini API call failed: {e}")
+            raise Exception(f"AI analysis failed: {str(e)}")
+
+    def _analyze_cv_job_compatibility(self, cv_text: str, job_title: str, job_description: str) -> Dict[str, Any]:
+        """Analyze CV-Job compatibility using Gemini AI"""
+
+        # Generate prompt using the prompts module
+        prompt = MatchingPrompts.get_cv_job_compatibility_prompt(cv_text, job_title, job_description)
+
+        try:
+            response_text = self._call_gemini_api(prompt)
+
+            # Clean the response to extract JSON
+            response_text = response_text.strip()
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            response_text = response_text.strip()
+
+            # Parse JSON response
+            analysis = json.loads(response_text)
+
+            # Validate required fields and set defaults if missing
+            return {
+                "compatibility_score": max(0, min(100, analysis.get("compatibility_score", 0))),
+                "matched_skills": analysis.get("matched_skills", [])[:10],  # Limit to 10
+                "missing_skills": analysis.get("missing_skills", [])[:5],  # Limit to 5
+                "analysis_summary": analysis.get("analysis_summary", "Analysis completed"),
+                "strengths": analysis.get("strengths", [])[:5],
+                "recommendations": analysis.get("recommendations", [])[:3]
+            }
+
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse Gemini response as JSON: {e}")
+            logger.error(f"Response was: {response_text}")
+            # Fallback to basic keyword matching
+            return self._fallback_analysis(cv_text, job_title, job_description)
+        except Exception as e:
+            logger.error(f"Gemini analysis failed: {e}")
+            # Fallback to basic keyword matching
+            return self._fallback_analysis(cv_text, job_title, job_description)
+
+    def _fallback_analysis(self, cv_text: str, job_title: str, job_description: str) -> Dict[str, Any]:
+        """Fallback analysis using basic keyword matching"""
+
+        # Basic technical keywords
+        tech_keywords = [
+            'python', 'java', 'javascript', 'react', 'vue', 'angular', 'node.js',
+            'docker', 'kubernetes', 'aws', 'azure', 'postgresql', 'mongodb',
+            'machine learning', 'ai', 'data science', 'devops', 'agile', 'scrum'
+        ]
+
+        cv_lower = cv_text.lower()
+        job_text_lower = f"{job_title} {job_description}".lower()
+
+        matched_skills = []
+        missing_skills = []
+
+        for keyword in tech_keywords:
+            if keyword in cv_lower and keyword in job_text_lower:
+                matched_skills.append(keyword)
+            elif keyword in job_text_lower and keyword not in cv_lower:
+                missing_skills.append(keyword)
+
+        # Basic score calculation
+        if len(matched_skills) == 0:
+            score = 0
+        else:
+            score = min(100, (len(matched_skills) * 15) + 10)
+
+        return {
+            "compatibility_score": score,
+            "matched_skills": matched_skills[:10],
+            "missing_skills": missing_skills[:5],
+            "analysis_summary": "Basic keyword analysis completed",
+            "strengths": matched_skills[:5],
+            "recommendations": [f"Consider learning {skill}" for skill in missing_skills[:3]]
+        }
 
     def _get_user_cv_data(self, db: Session, user_id: int) -> Dict[str, Any]:
         """Get user's CV data"""
@@ -165,47 +229,6 @@ class MatchingService:
                 detail="Error retrieving job offers"
             )
 
-    def _calculate_compatibility_score(self, cv_skills: List[Dict], job_skills: List[Dict]) -> Tuple[
-        int, List[str], List[str]]:
-        """Calculate compatibility score between CV and job"""
-
-        # Convertir en dictionnaires pour faciliter les comparaisons
-        cv_skill_dict = {skill['skill']: skill['weight'] for skill in cv_skills}
-        job_skill_dict = {skill['skill']: skill['weight'] for skill in job_skills}
-
-        matched_skills = []
-        cv_skill_names = set(cv_skill_dict.keys())
-        job_skill_names = set(job_skill_dict.keys())
-
-        # Compétences correspondantes
-        matched_skill_names = cv_skill_names.intersection(job_skill_names)
-
-        total_score = 0
-        max_possible_score = 0
-
-        # Calculer le score basé sur les compétences correspondantes
-        for skill in job_skill_names:
-            job_weight = job_skill_dict[skill]
-            max_possible_score += job_weight
-
-            if skill in matched_skill_names:
-                cv_weight = cv_skill_dict[skill]
-                # Score = moyenne pondérée entre CV et job
-                skill_score = (cv_weight + job_weight) / 2
-                total_score += skill_score
-                matched_skills.append(skill)
-
-        # Compétences manquantes (dans le job mais pas dans le CV)
-        missing_skills = list(job_skill_names - cv_skill_names)
-
-        # Calculer le pourcentage de compatibilité
-        if max_possible_score > 0:
-            compatibility_percentage = min(100, int((total_score / max_possible_score) * 100))
-        else:
-            compatibility_percentage = 0
-
-        return compatibility_percentage, matched_skills, missing_skills
-
     def _create_description_preview(self, description: str, max_length: int = 150) -> str:
         """Create a preview of the job description"""
         if not description:
@@ -225,7 +248,7 @@ class MatchingService:
 
     def get_job_matches(self, db: Session, user_id: int, limit: int = 10) -> Dict[str, Any]:
         """
-        Get job matches for a user based on their CV
+        Get job matches for a user based on their CV using Gemini AI
 
         Args:
             db: Database session
@@ -248,16 +271,12 @@ class MatchingService:
             cv_data = self._get_user_cv_data(db, user_id)
             cv_text = cv_data['parsed_data'].get('raw_text', '')
 
-            # Extraire les compétences du CV
-            cv_skills = self._extract_skills_from_text(cv_text)
-            cv_skill_names = [skill['skill'] for skill in cv_skills]
-
-            if not cv_skills:
+            if not cv_text.strip():
                 return {
                     "data": [],
                     "total": 0,
                     "user_skills": [],
-                    "message": "No skills detected in your CV. Please ensure your CV contains technical skills and experience."
+                    "message": "No content found in your CV. Please ensure your CV contains readable text."
                 }
 
             # Récupérer les offres d'emploi
@@ -267,39 +286,50 @@ class MatchingService:
                 return {
                     "data": [],
                     "total": 0,
-                    "user_skills": cv_skill_names,
+                    "user_skills": [],
                     "message": "No active job offers available at the moment."
                 }
 
-            # Analyser chaque offre d'emploi
+            # Analyser chaque offre d'emploi avec Gemini AI
             matches = []
+            all_user_skills = set()
 
             for job in job_offers:
-                # Combiner titre et description pour l'analyse
-                job_text = f"{job['title']} {job['description']}"
-                job_skills = self._extract_skills_from_text(job_text)
+                try:
+                    # Utiliser Gemini AI pour analyser la compatibilité
+                    analysis = self._analyze_cv_job_compatibility(
+                        cv_text,
+                        job['title'],
+                        job['description']
+                    )
 
-                # Calculer le score de compatibilité
-                score, matched_skills, missing_skills = self._calculate_compatibility_score(
-                    cv_skills, job_skills
-                )
+                    score = analysis['compatibility_score']
+                    matched_skills = analysis['matched_skills']
+                    missing_skills = analysis['missing_skills']
 
-                # Ne garder que les matches avec un score minimum
-                if score >= 10:  # Score minimum de 10%
-                    matches.append({
-                        "id": job['id'],  # Changé de job_id à id
-                        "title": job['title'],
-                        "company_name": job['company_name'],
-                        "company_id": job['company_id'],
-                        "compatibility_score": score,
-                        "matched_skills": matched_skills,
-                        "missing_skills": missing_skills[:5],  # Limiter à 5 compétences manquantes
-                        "salary_min": job['salary_min'],
-                        "salary_max": job['salary_max'],
-                        "description": self._create_description_preview(job['description']),
-                        # Changé de description_preview à description
-                        "created_at": job['created_at']  # Ajouté created_at
-                    })
+                    # Ajouter les compétences détectées de l'utilisateur
+                    all_user_skills.update(matched_skills)
+
+                    # Ne garder que les matches avec un score minimum
+                    if score >= 15:  # Score minimum de 15%
+                        matches.append({
+                            "id": job['id'],
+                            "title": job['title'],
+                            "company_name": job['company_name'],
+                            "company_id": job['company_id'],
+                            "compatibility_score": score,
+                            "matched_skills": matched_skills,
+                            "missing_skills": missing_skills,
+                            "salary_min": job['salary_min'],
+                            "salary_max": job['salary_max'],
+                            "description": self._create_description_preview(job['description']),
+                            "created_at": job['created_at']
+                        })
+
+                except Exception as e:
+                    logger.error(f"Error analyzing job {job['id']}: {e}")
+                    # Continue with next job if one fails
+                    continue
 
             # Trier par score de compatibilité (décroissant)
             matches.sort(key=lambda x: x['compatibility_score'], reverse=True)
@@ -310,8 +340,8 @@ class MatchingService:
             result = {
                 "data": top_matches,
                 "total": len(matches),
-                "user_skills": cv_skill_names,
-                "message": f"Found {len(matches)} job matches based on your CV analysis."
+                "user_skills": list(all_user_skills),
+                "message": f"Found {len(matches)} job matches using AI-powered analysis."
             }
 
             # Mettre en cache
@@ -328,7 +358,7 @@ class MatchingService:
             logger.error(f"Error in job matching for user {user_id}: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Error during job matching analysis"
+                detail="Error during AI-powered job matching analysis"
             )
 
     def get_match_stats(self, db: Session, user_id: int) -> Dict[str, Any]:
@@ -337,7 +367,7 @@ class MatchingService:
             cv_data = self._get_user_cv_data(db, user_id)
             matches_result = self.get_job_matches(db, user_id, limit=100)  # Get all matches for stats
 
-            matches = matches_result['matches']
+            matches = matches_result['data']
 
             if not matches:
                 return {

@@ -19,7 +19,7 @@ async def get_all_companies(
 
 @router.get("/{company_id}", response_model=CompanyResponse)
 async def get_company_by_id(
-    company_id: int,  # Changé de str à int
+    company_id: int,
     db: Session = Depends(get_db)
 ):
     """
