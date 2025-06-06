@@ -100,8 +100,6 @@ class CV(Base):
     file_type = Column(String(50))
     parsed_data = Column(JSONB)
     upload_date = Column(DateTime, default=datetime.utcnow)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relations
     user = relationship("User", back_populates="cvs")
