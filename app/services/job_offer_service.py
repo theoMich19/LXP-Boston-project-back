@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy.ext.declarative import declarative_base
 
-from app.db.model import JobOffer, JobOfferTag
+from app.db.model import JobOffer
 
 Base = declarative_base()
 
@@ -27,28 +27,6 @@ class JobOfferService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="HR user must be associated with a company to create job offers"
             )
-
-    def _validate_tags(self, db: Session, tag_ids: List[int]) -> List[int]:
-        """Validate that all tag IDs exist"""
-        if not tag_ids:
-            return []
-
-        # Check if all tags exist
-        existing_tags = db.execute(
-            "SELECT id FROM tags WHERE id = ANY(%s)",
-            (tag_ids,)
-        ).fetchall()
-
-        existing_tag_ids = [tag[0] for tag in existing_tags]
-        invalid_tags = set(tag_ids) - set(existing_tag_ids)
-
-        if invalid_tags:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid tag IDs: {', '.join(map(str, invalid_tags))}"
-            )
-
-        return existing_tag_ids
 
     def _create_job_offer_record(self, db: Session, job_data, user) -> JobOffer:
         """Create job offer record in database"""
@@ -76,29 +54,6 @@ class JobOfferService:
                 detail=f"Failed to create job offer: {str(e)}"
             )
 
-    def _add_job_offer_tags(self, db: Session, job_offer_id: int, tag_ids: List[int]) -> int:
-        """Add tags to job offer"""
-        if not tag_ids:
-            return 0
-
-        try:
-            for tag_id in tag_ids:
-                job_tag = JobOfferTag(
-                    job_offer_id=job_offer_id,
-                    tag_id=tag_id
-                )
-                db.add(job_tag)
-
-            db.commit()
-            return len(tag_ids)
-
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to add tags to job offer: {str(e)}"
-            )
-
     def create_job_offer(self, db: Session, job_data, user) -> Dict[str, Any]:
         """
         Create a new job offer
@@ -115,14 +70,8 @@ class JobOfferService:
         # Validate user permissions
         self._validate_hr_user(user)
 
-        # Validate tags if provided
-        validated_tag_ids = self._validate_tags(db, job_data.tags or [])
-
         # Create job offer
         job_offer = self._create_job_offer_record(db, job_data, user)
-
-        # Add tags
-        tags_added = self._add_job_offer_tags(db, job_offer.id, validated_tag_ids)
 
         # Return response
         return {
@@ -134,7 +83,6 @@ class JobOfferService:
             "salary_min": job_offer.salary_min,
             "salary_max": job_offer.salary_max,
             "status": job_offer.status,
-            "tags_added": tags_added,
             "created_at": job_offer.created_at,
             "message": f"Job offer '{job_offer.title}' created successfully"
         }

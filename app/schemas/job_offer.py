@@ -26,7 +26,6 @@ class JobOfferCreate(JobOfferBase):
     """Schema for job offer creation"""
     salary_min: Optional[Decimal] = None
     salary_max: Optional[Decimal] = None
-    tags: Optional[List[int]] = []
 
     @validator('salary_max')
     def validate_salary_range(cls, v, values):
@@ -61,7 +60,6 @@ class JobOfferCreateResponse(BaseModel):
     salary_min: Optional[Decimal] = None
     salary_max: Optional[Decimal] = None
     status: str
-    tags_added: int
     created_at: datetime
     message: str
 
